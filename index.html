@@ -1,361 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interactive Solar System</title>
-    <!-- 引入必要的三维图形库和动画库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <title>Interactive Space Experience</title>
     <style>
-        /* 基础样式设置 */
-        body { 
-            margin: 0; 
-            overflow: hidden; /* 防止出现滚动条 */
-        }
-        
-        /* 信息面板样式 */
-        #info {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-family: Arial, sans-serif;
-            width: 300px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        /* 行星标题样式 */
-        #planetTitle {
+        body {
             margin: 0;
-            color: #ffd700;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
+            overflow: hidden;
+            background: #000;
         }
-        
-        /* 行星详情样式 */
-        .planetDetail {
-            margin: 10px 0;
-            font-size: 14px;
-            line-height: 1.6;
+        .carousel {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
         }
-        
-        /* 返回按钮样式 */
-        .backButton {
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .slide.active {
+            opacity: 1;
+        }
+        .nav-button {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            padding: 10px 20px;
+            top: 50%;
+            transform: translateY(-50%);
             background: rgba(255,255,255,0.2);
             border: none;
             color: white;
-            border-radius: 5px;
+            padding: 20px;
             cursor: pointer;
-            display: none;
+            z-index: 1000;
+            font-size: 24px;
             transition: background 0.3s;
         }
-        
-        .backButton:hover {
+        .nav-button:hover {
             background: rgba(255,255,255,0.3);
+        }
+        #prevBtn {
+            left: 20px;
+        }
+        #nextBtn {
+            right: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
 <body>
-    <!-- 信息展示面板 -->
-    <div id="info">
-        <h2 id="planetTitle">太阳系漫游</h2>
-        <div id="planetInfo">点击任意星球开始探索</div>
+    <div class="carousel">
+        <button id="prevBtn" class="nav-button">←</button>
+        <button id="nextBtn" class="nav-button">→</button>
+        
+        <div class="slide active">
+            <iframe src="play.html" frameborder="0"></iframe>
+        </div>
+        <div class="slide">
+            <iframe src="about:blank"></iframe>
+        </div>
+        <div class="slide">
+            <iframe src="about:blank"></iframe>
+        </div>
     </div>
-    <button class="backButton" onclick="resetCamera()">返回全景</button>
+
     <script>
-        // 场景初始化
-        const scene = new THREE.Scene(); // 创建三维场景
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); // 创建相机，参数：视角、宽高比、近裁剪面、远裁剪面
-        const renderer = new THREE.WebGLRenderer({ antialias: true }); // 创建渲染器，启用抗锯齿
-        renderer.setSize(window.innerWidth, window.innerHeight); // 设置渲染器尺寸
-        document.body.appendChild(renderer.domElement); // 将渲染器添加到页面
-
-        // 行星数据配置对象
-        const planetData = {
-            sun: {
-                size: 2, // 太阳大小
-                color: 0xffff00, // 太阳颜色
-                textureUrl: null, // 预留贴图位置
-                info: {
-                    title: "太阳 - 太阳系的中心",
-                    description: `太阳系的中心天体，直径约1,392,684公里。
-                        特征：
-                        - 表面温度：约5500°C
-                        - 核心温度：约1500万°C
-                        - 年龄：约46亿年
-                        - 主要成分：氢(74.9%)和氦(23.8%)`
-                },
-                orbitSpeed: 0 // 轨道速度（太阳不移动）
-            },
-            mercury: {
-                size: 0.4,
-                color: 0x808080,
-                textureUrl: null,
-                distance: 4,
-                info: {
-                    title: "水星 - 最内层行星",
-                    description: `最靠近太阳的行星。
-                        特征：
-                        - 表面温度：-180°C至430°C
-                        - 公转周期：88地球日
-                        - 自转周期：59地球日
-                        - 无卫星`
-                },
-                orbitSpeed: 0.047
-            },
-            venus: {
-                size: 0.9,
-                color: 0xffd700,
-                textureUrl: null,
-                distance: 7,
-                info: {
-                    title: "金星 - 地球的姊妹星",
-                    description: `体积与地球相近的类地行星。
-                        特征：
-                        - 表面温度：462°C
-                        - 大气压：92个地球大气压
-                        - 自转方向：自西向东
-                        - 无卫星`
-                },
-                orbitSpeed: 0.035
-            },
-            earth: {
-                size: 1,
-                color: 0x0000ff,
-                textureUrl: null,
-                distance: 10,
-                info: {
-                    title: "地球 - 人类家园",
-                    description: `目前已知唯一孕育生命的行星。
-                        特征：
-                        - 表面温度：平均15°C
-                        - 大气成分：氮气(78%)、氧气(21%)
-                        - 卫星：1个(月球)
-                        - 水覆盖：71%`
-                },
-                orbitSpeed: 0.029
-            },
-            mars: {
-                size: 0.5,
-                color: 0xff4500,
-                textureUrl: null,
-                distance: 15,
-                info: {
-                    title: "火星 - 红色星球",
-                    description: `充满神秘的红色星球。
-                        特征：
-                        - 表面温度：-87°C至-5°C
-                        - 大气压：地球的1%
-                        - 卫星：2个
-                        - 极冠：水冰和干冰`
-                },
-                orbitSpeed: 0.024
-            },
-            jupiter: {
-                size: 1.8,
-                color: 0xffa500,
-                textureUrl: null,
-                distance: 20,
-                info: {
-                    title: "木星 - 太阳系最大行星",
-                    description: `气态巨行星之王。
-                        特征：
-                        - 大红斑：持续300多年的风暴
-                        - 卫星：79个已知卫星
-                        - 环系统：暗淡但存在
-                        - 大气：主要由氢和氦构成`
-                },
-                orbitSpeed: 0.013
-            }
-        };
-
-        // 创建轨道线函数
-        function createOrbitLine(radius) {
-            const segments = 128; // 轨道线段数
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array((segments + 1) * 3);
-
-            // 生成圆形轨道的顶点
-            for (let i = 0; i <= segments; i++) {
-                const angle = (i / segments) * Math.PI * 2;
-                positions[i * 3] = radius * Math.cos(angle);
-                positions[i * 3 + 1] = 0;
-                positions[i * 3 + 2] = radius * Math.sin(angle);
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            return new THREE.Line(
-                geometry,
-                new THREE.LineBasicMaterial({ 
-                    color: 0x444444, 
-                    transparent: true, 
-                    opacity: 0.5 
-                })
-            );
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            currentSlide = (index + slides.length) % slides.length;
+            slides[currentSlide].classList.add('active');
         }
 
-        // 初始化行星系统
-        const planets = {};
-        Object.entries(planetData).forEach(([name, data]) => {
-            // 创建行星几何体和材质
-            const geometry = new THREE.SphereGeometry(data.size, 32, 32);
-            const material = new THREE.MeshBasicMaterial({ color: data.color });
-            const planet = new THREE.Mesh(geometry, material);
-            
-            if (data.distance) {
-                // 创建轨道组
-                const orbitGroup = new THREE.Group();
-                scene.add(orbitGroup);
-                orbitGroup.add(planet);
-                planet.position.x = data.distance;
-                
-                // 添加轨道线
-                const orbitLine = createOrbitLine(data.distance);
-                scene.add(orbitLine);
-                
-                planets[name] = { mesh: planet, group: orbitGroup };
-            } else {
-                scene.add(planet);
-                planets[name] = { mesh: planet };
-            }
+        document.getElementById('nextBtn').addEventListener('click', () => showSlide(currentSlide + 1));
+        document.getElementById('prevBtn').addEventListener('click', () => showSlide(currentSlide - 1));
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') showSlide(currentSlide + 1);
+            if (e.key === 'ArrowLeft') showSlide(currentSlide - 1);
         });
-
-        // 创建星空背景
-        function createStarfield() {
-            const starGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-            const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-            
-            // 创建3000颗随机分布的星星
-            for (let i = 0; i < 3000; i++) {
-                const star = new THREE.Mesh(starGeometry, starMaterial);
-                // 使用球坐标系随机分布星星
-                const radius = Math.random() * 1000 + 100;
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.random() * Math.PI * 2;
-                
-                star.position.x = radius * Math.sin(theta) * Math.cos(phi);
-                star.position.y = radius * Math.sin(theta) * Math.sin(phi);
-                star.position.z = radius * Math.cos(theta);
-                
-                scene.add(star);
-            }
-        }
-
-        createStarfield(); // 创建星空
-
-        // 相机控制
-        camera.position.z = 30;
-        let isZoomedIn = false; // 记录当前是否处于放大状态
-
-        // 重置相机位置函数
-        function resetCamera() {
-            new TWEEN.Tween(camera.position)
-                .to({ x: 0, y: 0, z: 30 }, 1000)
-                .easing(TWEEN.Easing.Cubic.InOut)
-                .start();
-            document.querySelector('.backButton').style.display = 'none';
-            isZoomedIn = false;
-
-            const info = document.getElementById('info');
-            const button = document.querySelector('.collapseButton');
-            
-            if (info.classList.contains('collapsed')) {
-                info.classList.remove('collapsed');
-                button.textContent = '−';
-            } else {
-                info.classList.add('collapsed');
-                button.textContent = '+';
-            }
-        }
-
-        // 射线投射器（用于检测点击）
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        // 更新行星信息面板
-        function updatePlanetInfo(name) {
-            const data = planetData[name];
-            const title = document.getElementById('planetTitle');
-            const info = document.getElementById('planetInfo');
-            
-            title.textContent = data.info.title;
-            info.innerHTML = `<div class="planetDetail">${data.info.description.replace(/\n/g, '<br>')}</div>`;
-        }
-
-        // 点击事件处理函数
-        function onMouseClick(event) {
-            // 计算鼠标位置的标准化设备坐标
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(Object.values(planets).map(p => p.mesh));
-
-            if (intersects.length > 0) {
-                const clickedPlanet = intersects[0].object;
-                
-                // 查找被点击的行星并更新信息
-                Object.entries(planets).forEach(([name, planetObj]) => {
-                    if (planetObj.mesh === clickedPlanet) {
-                        updatePlanetInfo(name);
-                        
-                        // 计算相机目标位置
-                        const targetPosition = clickedPlanet.position.clone();
-                        const distance = planetData[name].size * 5;
-                        
-                        // 相机平滑移动动画
-                        new TWEEN.Tween(camera.position)
-                            .to({
-                                x: targetPosition.x + distance,
-                                y: targetPosition.y + distance/2,
-                                z: targetPosition.z + distance
-                            }, 1000)
-                            .easing(TWEEN.Easing.Cubic.InOut)
-                            .start();
-                            
-                        document.querySelector('.backButton').style.display = 'block';
-                        isZoomedIn = true;
-                    }
-                });
-            }
-        }
-
-        // 注册点击事件监听器
-        window.addEventListener('click', onMouseClick);
-
-        // 动画循环函数
-        function animate(time) {
-            requestAnimationFrame(animate);
-            
-            // 更新行星运动
-            Object.entries(planets).forEach(([name, planetObj]) => {
-                if (planetObj.group && !isZoomedIn) {
-                    // 行星公转
-                    planetObj.group.rotation.y += planetData[name].orbitSpeed * 0.01;
-                }
-                // 行星自转
-                planetObj.mesh.rotation.y += 0.005;
-            });
-
-            TWEEN.update(time);
-            renderer.render(scene, camera);
-        }
-
-        // 窗口大小调整处理
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        animate(); // 启动动画循环
     </script>
 </body>
 </html>
